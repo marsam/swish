@@ -32,6 +32,11 @@
 #pragma comment(lib, "winmm.lib")
 #pragma comment(lib, "ws2_32.lib")
 #endif
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 
 typedef struct {
   ptr (*close)(uptr port, ptr callback);
@@ -1020,6 +1025,13 @@ uint64_t osi_get_time(void) {
   // now is the number of 100-nanosecond intervals since 1 Jan 1601 (UTC).
   // 11644473600000 is the number of milliseconds from 1 Jan 1601 to 1 Jan 1970.
   return (now / 10000) - 11644473600000;
+#elif __MACH__
+  clock_serv_t cclock;
+  mach_timespec_t mts;
+  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+  clock_get_time(cclock, &mts);
+  mach_port_deallocate(mach_task_self(), cclock);
+  return mts.tv_sec * (uint64_t)1000 + (mts.tv_nsec / 1000000);
 #else
   struct timespec now;
   if (clock_gettime(CLOCK_REALTIME, &now))
